@@ -23,5 +23,5 @@ categories = [
 [dependencies]
 deno_core = "^0.79"
 futures = "^0.3"
-import_fn = {path = "../import_fn"}
+import_fn = {version = "^0.1", path = "../import_fn"}
 
