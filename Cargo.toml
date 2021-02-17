@@ -1,0 +1,6 @@
+[workspace]
+members = [
+    "crabzilla",
+    "import_fn",
+    "crabzilla-tests",
+]

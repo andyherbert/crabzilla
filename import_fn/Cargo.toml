@@ -1,0 +1,28 @@
+[package]
+name = "import_fn"
+version = "0.1.0"
+authors = [
+    "Andy Herbert <andy.herbert@gmail.com>",
+]
+edition = "2018"
+license = "MIT"
+description = "Implementation of #[import_fn] macro for Crabzilla"
+repository = "https://github.com/andyherbert/crabzilla"
+keywords = [
+    "javascript",
+    "ecmascript",
+    "scripting",
+    "runtime",
+]
+categories = [
+    "compilers",
+    "game-development",
+    "parser-implementations",
+]
+
+[lib]
+proc-macro = true
+
+[dependencies]
+quote = "1.0.9"
+syn = {version = "1.0.60", features = ["full"]}

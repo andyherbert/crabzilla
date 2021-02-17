@@ -1,0 +1,17 @@
+[package]
+name = "crabzilla-tests"
+version = "0.1.0"
+authors = ["Andy Herbert <andy.herbert@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+crabzilla = {path = "../crabzilla"}
+
+[dependencies.tokio]
+version = "^1.2"
+features = [
+    "macros",
+    "time",
+    "rt-multi-thread",
+]
+

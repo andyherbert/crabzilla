@@ -1,0 +1,27 @@
+[package]
+name = "crabzilla"
+version = "0.1.0"
+authors = [
+    "Andy Herbert <andy.herbert@gmail.com>",
+]
+edition = "2018"
+license = "MIT"
+description = "Provides a JavaScript runtime"
+repository = "https://github.com/andyherbert/crabzilla"
+keywords = [
+    "javascript",
+    "ecmascript",
+    "scripting",
+    "runtime",
+]
+categories = [
+    "compilers",
+    "game-development",
+    "parser-implementations",
+]
+
+[dependencies]
+deno_core = "^0.79"
+futures = "^0.3"
+import_fn = {path = "../import_fn"}
+
