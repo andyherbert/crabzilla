@@ -55,6 +55,7 @@ use std::rc::Rc;
 // use futures::Future;
 pub use deno_core::serde_json::value::Value;
 pub use deno_core::error::AnyError;
+pub use deno_core::error::custom_error;
 pub use import_fn::import_fn;
 
 fn get_args(value: &Value) -> Vec<Value> {
@@ -143,11 +144,20 @@ impl Runtime {
         let mut definitions = String::new();
         for import in self.imported_names.iter() {
             match import {
-                ImportedName::Sync(name) => definitions.push_str(&format!("window[{:?}]=(...args)=>Deno.core.jsonOpSync({0:?}, {{args}});", name)),
-                ImportedName::Async(name) => definitions.push_str(&format!("window[{:?}]=(...args)=>Deno.core.jsonOpAsync({0:?}, {{args}});", name)),
+                ImportedName::Sync(name) => definitions.push_str(&format!("        window[{:?}] = (...args) => Deno.core.jsonOpSync({0:?}, {{args}});\n", name)),
+                ImportedName::Async(name) => definitions.push_str(&format!("        window[{:?}] = (...args) => Deno.core.jsonOpAsync({0:?}, {{args}});\n", name)),
             }
         }
-        let js_source = format!("\"use strict\";((window)=>{{Deno.core.ops();{}}})(this);", definitions);
+        let js_source = format!(r#"
+"use strict";
+(
+    (window) => {{
+        Deno.core.ops();
+        Deno.core.registerErrorClass("Error", window.Error);
+{}    }}
+)(this);"#,
+            definitions,
+        );
         self.runtime.execute("rust:core.js", &js_source).expect("runtime exporting");
     }
 
@@ -188,5 +198,13 @@ macro_rules! runtime {
             runtime.importing_finished();
             runtime
         }
+    }
+}
+
+/// Throws an error with a custom message in an imported Rust function.
+#[macro_export]
+macro_rules! throw {
+    ($message:expr) => {
+        return Err(crabzilla::custom_error("Error", $message));
     }
 }

@@ -7,10 +7,10 @@ fn quote_without_return(ident: &Ident, block: &Box<Block>) -> TokenStream {
     let result = quote! {
         fn #ident() -> crabzilla::ImportedFn {
             crabzilla::create_sync_fn(
-                |args: Vec<crabzilla::Value>| -> Result<crabzilla::Value, crabzilla::AnyError> {
+                |args: Vec<crabzilla::Value>| -> std::result::Result<crabzilla::Value, crabzilla::AnyError> {
                     Ok(#block)
                 },
-                String::from(#name),
+                std::string::String::from(#name),
             )
         }
     };
@@ -22,11 +22,11 @@ fn quote_with_return(ident: &Ident, block: &Box<Block>) -> TokenStream {
     let result = quote! {
         fn #ident() -> crabzilla::ImportedFn {
             crabzilla::create_sync_fn(
-                |args: Vec<crabzilla::Value>| -> Result<crabzilla::Value, crabzilla::AnyError> {
+                |args: Vec<crabzilla::Value>| -> std::result::Result<crabzilla::Value, crabzilla::AnyError> {
                     #block
                     Ok(crabzilla::Value::Null)
                 },
-                String::from(#name),
+                std::string::String::from(#name),
             )
         }
     };
