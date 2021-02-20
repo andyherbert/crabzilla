@@ -68,13 +68,16 @@ fn get_args(value: &Value) -> Vec<Value> {
 }
 
 /// Represents an imported Rust function.
-pub enum ImportedFn {
-    Sync(Box<OpFn>, String),
-    Async(Box<OpFn>, String),
+pub struct ImportedFn {
+    op_fn: Box<OpFn>,
+    name: String,
+    scope: Option<String>,
+    sync: bool,
 }
 
 /// Receives a Rust function and returns a structure that can be imported in to a runtime.
-pub fn create_sync_fn<F>(imported_fn: F, name: String) -> ImportedFn where
+pub fn create_sync_fn<F>(imported_fn: F, name: &str, scope: Option<String>) -> ImportedFn
+    where
     F: Fn(Vec<Value>) -> Result<Value, AnyError> + 'static,
 {
     let op_fn = json_op_sync(
@@ -82,13 +85,17 @@ pub fn create_sync_fn<F>(imported_fn: F, name: String) -> ImportedFn where
             imported_fn(get_args(&value))
         }
     );
-    ImportedFn::Sync(
+    ImportedFn {
         op_fn,
-        name,
-    )
+        name: name.to_string(),
+        scope,
+        sync: true,
+    }
 }
 
-// pub fn create_async_fn<F, R>(imported_fn: F, name: String) -> ImportedFn where
+// Unsupported until async closures are stable.
+// pub fn create_async_fn<F, R>(imported_fn: F, name: &str, scope: Option<String>) -> ImportedFn
+//     where
 //     F: Fn(Vec<Value>) -> R + 'static,
 //     R: Future<Output = Result<Value, AnyError>> + 'static,
 // {
@@ -97,21 +104,25 @@ pub fn create_sync_fn<F>(imported_fn: F, name: String) -> ImportedFn where
 //             imported_fn(get_args(&value))
 //         }
 //     );
-//     ImportedFn::Async(
+//     ImportedFn {
 //         op_fn,
-//         name,
-//     )
+//         name: name.to_string(),
+//         scope,
+//         sync: false,
+//     }
 // }
 
-enum ImportedName {
-    Sync(String),
-    Async(String),
+struct ImportedName {
+    name: String,
+    scope: Option<String>,
+    sync: bool,
 }
 
 /// Represents a JavaScript runtime instance.
 pub struct Runtime {
     runtime: JsRuntime,
     imported_names: Vec<ImportedName>,
+    scopes: Vec<String>,
 }
 
 impl Runtime {
@@ -121,32 +132,44 @@ impl Runtime {
             ..Default::default()
         });
         let imported_names = vec![];
+        let scopes = vec![];
         Runtime {
             runtime,
             imported_names,
+            scopes,
         }
     }
 
-    pub fn import<F>(&mut self, imported_fn: F) where F: Fn() -> ImportedFn {
-        match imported_fn() {
-            ImportedFn::Sync(op_fn, name) => {
-                self.runtime.register_op(&name, op_fn);
-                self.imported_names.push(ImportedName::Sync(name));
-            },
-            ImportedFn::Async(op_fn, name) => {
-                self.runtime.register_op(&name, op_fn);
-                self.imported_names.push(ImportedName::Async(name));
-            },
+    pub fn import<F>(&mut self, imported_fn: F) -> ()
+    where F: Fn() -> ImportedFn {
+        let import_fn = imported_fn();
+        if let Some(scope) = &import_fn.scope {
+            self.scopes.push(scope.clone());
         }
+        self.runtime.register_op(&import_fn.name, import_fn.op_fn);
+        self.imported_names.push(ImportedName {
+            name: import_fn.name,
+            scope: import_fn.scope,
+            sync: import_fn.sync,
+        });
     }
 
     pub fn importing_finished(&mut self) {
-        let mut definitions = String::new();
+        let mut scope_definitions = String::new();
+        for scope in self.scopes.iter() {
+            scope_definitions.push_str(&format!("        window[{:?}] = {{}};\n", scope));
+        }
+        let mut name_definitions = String::new();
         for import in self.imported_names.iter() {
-            match import {
-                ImportedName::Sync(name) => definitions.push_str(&format!("        window[{:?}] = (...args) => Deno.core.jsonOpSync({0:?}, {{args}});\n", name)),
-                ImportedName::Async(name) => definitions.push_str(&format!("        window[{:?}] = (...args) => Deno.core.jsonOpAsync({0:?}, {{args}});\n", name)),
-            }
+            let scope = match &import.scope {
+                Some(scope) => format!("window[{:?}][{:?}]", scope, import.name),
+                None => format!("window[{:?}]", import.name),
+            };
+            let command = match import.sync {
+                true => "jsonOpSync",
+                false => "jsonOpAsync",
+            };
+            name_definitions.push_str(&format!("        {} = (...args) => Deno.core.{}({:?}, {{args}});\n", scope, command, import.name));
         }
         let js_source = format!(r#"
 "use strict";
@@ -154,9 +177,10 @@ impl Runtime {
     (window) => {{
         Deno.core.ops();
         Deno.core.registerErrorClass("Error", window.Error);
-{}    }}
+{}{}    }}
 )(this);"#,
-            definitions,
+            scope_definitions,
+            name_definitions,
         );
         self.runtime.execute("rust:core.js", &js_source).expect("runtime exporting");
     }
