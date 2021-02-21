@@ -102,7 +102,7 @@ fn parse_meta(metas: Vec<NestedMeta>) -> Result<ImportOptions, TokenStream> {
                     Meta::NameValue(meta_name_value) => {
                         let string = meta_name_value.path.to_token_stream().to_string();
                         match string.as_str() {
-                            "Scope" => {
+                            "scope" => {
                                 match meta_name_value.lit {
                                     Lit::Str(lit_str) => {
                                         let scope = lit_str.value();
@@ -114,7 +114,7 @@ fn parse_meta(metas: Vec<NestedMeta>) -> Result<ImportOptions, TokenStream> {
                                     _ => return Err(error(meta_name_value.lit, "Unsupported value")),
                                 }
                             },
-                            "Name" => {
+                            "name" => {
                                 match meta_name_value.lit {
                                     Lit::Str(lit_str) => {
                                         let name = lit_str.value();
@@ -139,8 +139,8 @@ fn parse_meta(metas: Vec<NestedMeta>) -> Result<ImportOptions, TokenStream> {
 }
 
 /// An attribute macro to convert Rust functions so they can be imported into a runtime.
-/// The meta attributes Name and Scope can be used to define the scoping of a particular
-/// when calling from javascript, for example `Scope = "Foo", Name = "bar"` would assign
+/// The meta attributes `name` and `scope` can be used to define the scoping of a particular
+/// when calling from javascript, for example `scope = "Foo", name = "bar"` would assign
 /// the function as Foo.bar. Without a scope the function will be attached to the global
 /// object, and without a name it will be assigned with the Rust function name.
 #[proc_macro_attribute]
