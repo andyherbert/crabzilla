@@ -1,7 +1,7 @@
 use crabzilla::*;
 use std::io::stdin;
 
-#[import_fn]
+#[import_fn(name="read", scope="Stdin")]
 fn read_from_stdin() -> Value {
     let mut buffer = String::new();
     println!("Type your name: ");
@@ -10,7 +10,7 @@ fn read_from_stdin() -> Value {
     Value::String(buffer)
 }
 
-#[import_fn]
+#[import_fn(name="sayHello", scope="Stdout")]
 fn say_hello(args: Vec<Value>) {
     if let Some(string) = args.get(0) {
         if let Value::String(string) = string {

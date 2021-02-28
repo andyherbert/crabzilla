@@ -1,2 +1,2 @@
-const user = read_from_stdin();
-say_hello(user);
+const user = Stdin.read();
+Stdout.sayHello(user);

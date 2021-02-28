@@ -5,7 +5,7 @@
 //! use crabzilla::*;
 //! use std::io::stdin;
 //! 
-//! #[import_fn]
+//! #[import_fn(name="read", scope="Stdin")]
 //! fn read_from_stdin() -> Value {
 //!     let mut buffer = String::new();
 //!     println!("Type your name: ");
@@ -14,7 +14,7 @@
 //!     Value::String(buffer)
 //! }
 //! 
-//! #[import_fn]
+//! #[import_fn(name="sayHello", scope="Stdout")]
 //! fn say_hello(args: Vec<Value>) {
 //!     if let Some(string) = args.get(0) {
 //!         if let Value::String(string) = string {
@@ -36,8 +36,8 @@
 //! ```
 //! In `module.js`:
 //! ```
-//! const user = read_from_stdin();
-//! say_hello(user);
+//! const user = Stdin.read();
+//! Stdout.sayHello(user);
 //! ```
 use deno_core::{
     FsModuleLoader,
