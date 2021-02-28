@@ -157,6 +157,8 @@ pub fn import_fn(attr: TokenStream, item: TokenStream) -> TokenStream {
         "args : Vec < crabzilla :: Value >" => {},
         "args : std :: vec :: Vec < Value >" => {},
         "args : std :: vec :: Vec < crabzilla :: Value >" => {},
+        "args : :: vec :: Vec < Value >" => {},
+        "args : :: vec :: Vec < crabzilla :: Value >" => {},
         _ => return error(
             input.sig.inputs,
             "Illegal arguments, should be empty or \"args: Vec<Value>\""
