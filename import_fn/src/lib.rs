@@ -148,7 +148,7 @@ pub fn import_fn(attr: TokenStream, item: TokenStream) -> TokenStream {
     let input = parse_macro_input!(item as ItemFn);
     let attr = parse_macro_input!(attr as AttributeArgs);
     let crab_meta = match parse_meta(attr) {
-        Ok(string) => string,
+        Ok(crab_meta) => crab_meta,
         Err(error) => return error.into(),
     };
     match input.sig.inputs.to_token_stream().to_string().as_str() {
