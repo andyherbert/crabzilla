@@ -9,7 +9,10 @@ fn read_from_stdin() -> Value {
     let mut buffer = String::new();
     println!("Type your name: ");
     stdin().read_line(&mut buffer)?;
-    buffer.pop();
+    buffer.pop(); // Remove newline
+    if buffer.is_empty() {
+        throw!("Expected name!");
+    }
     json!(buffer)
 }
 
