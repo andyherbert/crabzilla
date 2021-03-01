@@ -1,44 +1,44 @@
-//! Crabzilla provides a _simple_ interface for running JavaScript modules alongside Rust code.
-//! <br>
-//! # Example
-//! ```
-//! use crabzilla::*;
-//! use std::io::stdin;
-//! 
-//! #[import_fn(name="read", scope="Stdin")]
-//! fn read_from_stdin() -> Value {
-//!     let mut buffer = String::new();
-//!     println!("Type your name: ");
-//!     stdin().read_line(&mut buffer)?;
-//!     buffer.pop();
-//!     Value::String(buffer)
-//! }
-//! 
-//! #[import_fn(name="sayHello", scope="Stdout")]
-//! fn say_hello(args: Vec<Value>) {
-//!     if let Some(string) = args.get(0) {
-//!         if let Value::String(string) = string {
-//!             println!("Hello, {}", string);
-//!         }
-//!     }
-//! }
-//! 
-//! #[tokio::main]
-//! async fn main() {
-//!     let mut runtime = runtime! {
-//!         read_from_stdin,
-//!         say_hello,
-//!     };
-//!     if let Err(error) = runtime.load_module("./module.js").await {
-//!         eprintln!("{}", error);
-//!     }
-//! }
-//! ```
-//! In `module.js`:
-//! ```
-//! const user = Stdin.read();
-//! Stdout.sayHello(user);
-//! ```
+/*! Crabzilla provides a _simple_ interface for running JavaScript modules alongside Rust code.
+# Example
+```
+use crabzilla::*;
+use std::io::stdin;
+
+#[import_fn(name="read", scope="Stdin")]
+fn read_from_stdin() -> Value {
+    let mut buffer = String::new();
+    println!("Type your name: ");
+    stdin().read_line(&mut buffer)?;
+    buffer.pop();
+    Value::String(buffer)
+}
+
+#[import_fn(name="sayHello", scope="Stdout")]
+fn say_hello(args: Vec<Value>) {
+    if let Some(string) = args.get(0) {
+        if let Value::String(string) = string {
+            println!("Hello, {}", string);
+        }
+    }
+}
+
+#[tokio::main]
+async fn main() {
+    let mut runtime = runtime! {
+        read_from_stdin,
+        say_hello,
+    };
+    if let Err(error) = runtime.load_module("./module.js").await {
+        eprintln!("{}", error);
+    }
+}
+```
+In `module.js`:
+```
+const user = Stdin.read();
+Stdout.sayHello(user);
+```
+*/
 use deno_core::{
     FsModuleLoader,
     JsRuntime,
@@ -126,6 +126,7 @@ pub struct Runtime {
 }
 
 impl Runtime {
+    /// Creates a new Runtime
     pub fn new() -> Self {
         let runtime = JsRuntime::new(deno_core::RuntimeOptions{
             module_loader: Some(Rc::new(FsModuleLoader)),
@@ -140,6 +141,7 @@ impl Runtime {
         }
     }
 
+    /// Imports a new ImportedFn
     pub fn import<F>(&mut self, imported_fn: F) -> ()
     where F: Fn() -> ImportedFn {
         let import_fn = imported_fn();
@@ -154,6 +156,7 @@ impl Runtime {
         });
     }
 
+    /// Generates JavaScript hooks for the Runtime when all functions have been imported
     pub fn importing_finished(&mut self) {
         let mut scope_definitions = String::new();
         for scope in self.scopes.iter() {
@@ -185,6 +188,7 @@ impl Runtime {
         self.runtime.execute("rust:core.js", &js_source).expect("runtime exporting");
     }
 
+    /// Loads a JavaScript module and evaluates it
     pub async fn load_module(&mut self, path_str: &str) -> Result<(), AnyError> {
         let specifier = ModuleSpecifier::resolve_path(path_str)?;
         let id = self.runtime.load_module(&specifier, None).await?;
