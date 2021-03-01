@@ -13,7 +13,7 @@ fn read_from_stdin() -> Value {
     println!("Type your name: ");
     stdin().read_line(&mut buffer)?;
     buffer.pop();
-    Value::String(buffer)
+    json!(buffer)
 }
 
 #[import_fn(name="sayHello", scope="Stdout")]

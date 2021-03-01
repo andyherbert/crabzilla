@@ -10,7 +10,7 @@ fn read_from_stdin() -> Value {
     println!("Type your name: ");
     stdin().read_line(&mut buffer)?;
     buffer.pop();
-    Value::String(buffer)
+    json!(buffer)
 }
 
 #[import_fn(name="sayHello", scope="Stdout")]
@@ -53,7 +53,10 @@ use deno_core::{
 use std::rc::Rc;
 // use std::cell::RefCell;
 // use futures::Future;
-pub use deno_core::serde_json::value::Value;
+pub use deno_core::serde_json::{
+    json,
+    value::Value,
+};
 pub use deno_core::error::AnyError;
 pub use deno_core::error::custom_error;
 pub use import_fn::import_fn;
