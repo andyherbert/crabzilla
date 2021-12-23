@@ -1,19 +1,7 @@
 use proc_macro::TokenStream;
+use quote::{quote, quote_spanned, ToTokens};
 use syn::{
-    AttributeArgs,
-    NestedMeta,
-    Meta,
-    Block,
-    Ident,
-    ItemFn,
-    parse_macro_input,
-    spanned::Spanned,
-    Lit,
-};
-use quote::{
-    quote,
-    quote_spanned,
-    ToTokens,
+    parse_macro_input, spanned::Spanned, AttributeArgs, Block, Ident, ItemFn, Lit, Meta, NestedMeta,
 };
 
 macro_rules! option_string_to_token_stream {
@@ -26,13 +14,13 @@ macro_rules! option_string_to_token_stream {
                 None
             },
         }
-    }
+    };
 }
 
-fn quote_without_return(ident: &Ident, block: &Box<Block>, crab_meta: ImportOptions) -> TokenStream {
-    let name = crab_meta.name.unwrap_or(ident.to_string());
+fn quote_without_return(ident: &Ident, block: &Block, crab_meta: ImportOptions) -> TokenStream {
+    let name = crab_meta.name.unwrap_or_else(|| ident.to_string());
     let scope = option_string_to_token_stream!(crab_meta.scope);
-    let result = quote! {
+    quote! {
         fn #ident() -> crabzilla::ImportedFn {
             crabzilla::create_sync_fn(
                 |args: Vec<crabzilla::Value>| -> std::result::Result<crabzilla::Value, crabzilla::AnyError> {
@@ -42,14 +30,13 @@ fn quote_without_return(ident: &Ident, block: &Box<Block>, crab_meta: ImportOpti
                 #scope,
             )
         }
-    };
-    result.into()
+    }.into()
 }
 
-fn quote_with_return(ident: &Ident, block: &Box<Block>, crab_meta: ImportOptions) -> TokenStream {
-    let name = crab_meta.name.unwrap_or(ident.to_string());
+fn quote_with_return(ident: &Ident, block: &Block, crab_meta: ImportOptions) -> TokenStream {
+    let name = crab_meta.name.unwrap_or_else(|| ident.to_string());
     let scope = option_string_to_token_stream!(crab_meta.scope);
-    let result = quote! {
+    quote! {
         fn #ident() -> crabzilla::ImportedFn {
             crabzilla::create_sync_fn(
                 |args: Vec<crabzilla::Value>| -> std::result::Result<crabzilla::Value, crabzilla::AnyError> {
@@ -60,8 +47,7 @@ fn quote_with_return(ident: &Ident, block: &Box<Block>, crab_meta: ImportOptions
                 #scope,
             )
         }
-    };
-    result.into()
+    }.into()
 }
 
 fn error<T: Spanned>(item: T, msg: &str) -> TokenStream {
@@ -78,7 +64,7 @@ struct ImportOptions {
     name: Option<String>,
 }
 
-fn validate_literal(name: &String) -> bool {
+fn validate_literal(name: &str) -> bool {
     if name.is_empty() {
         return false;
     }
@@ -97,40 +83,34 @@ fn parse_meta(metas: Vec<NestedMeta>) -> Result<ImportOptions, TokenStream> {
     let mut options = ImportOptions::default();
     for meta in metas {
         match meta {
-            NestedMeta::Meta(meta) => {
-                match meta {
-                    Meta::NameValue(meta_name_value) => {
-                        let string = meta_name_value.path.to_token_stream().to_string();
-                        match string.as_str() {
-                            "scope" => {
-                                match meta_name_value.lit {
-                                    Lit::Str(lit_str) => {
-                                        let scope = lit_str.value();
-                                        if !validate_literal(&scope) {
-                                            return Err(error(lit_str, "Invalid scope"));
-                                        }
-                                        options.scope = Some(scope);
-                                    },
-                                    _ => return Err(error(meta_name_value.lit, "Unsupported value")),
+            NestedMeta::Meta(meta) => match meta {
+                Meta::NameValue(meta_name_value) => {
+                    let string = meta_name_value.path.to_token_stream().to_string();
+                    match string.as_str() {
+                        "scope" => match meta_name_value.lit {
+                            Lit::Str(lit_str) => {
+                                let scope = lit_str.value();
+                                if !validate_literal(&scope) {
+                                    return Err(error(lit_str, "Invalid scope"));
                                 }
-                            },
-                            "name" => {
-                                match meta_name_value.lit {
-                                    Lit::Str(lit_str) => {
-                                        let name = lit_str.value();
-                                        if !validate_literal(&name) {
-                                            return Err(error(lit_str, "Invalid name"));
-                                        }
-                                        options.name = Some(lit_str.value());
-                                    },
-                                    _ => return Err(error(meta_name_value.lit, "Unsupported value")),
+                                options.scope = Some(scope);
+                            }
+                            _ => return Err(error(meta_name_value.lit, "Unsupported value")),
+                        },
+                        "name" => match meta_name_value.lit {
+                            Lit::Str(lit_str) => {
+                                let name = lit_str.value();
+                                if !validate_literal(&name) {
+                                    return Err(error(lit_str, "Invalid name"));
                                 }
-                            },
-                            _ => return Err(error(meta_name_value, "Unsupported meta")),
-                        }
-                    },
-                    _ => return Err(error(meta, "Unsupported meta")),
+                                options.name = Some(lit_str.value());
+                            }
+                            _ => return Err(error(meta_name_value.lit, "Unsupported value")),
+                        },
+                        _ => return Err(error(meta_name_value, "Unsupported meta")),
+                    }
                 }
+                _ => return Err(error(meta, "Unsupported meta")),
             },
             _ => return Err(error(meta, "Unsupported meta")),
         }
@@ -149,34 +129,29 @@ pub fn import_fn(attr: TokenStream, item: TokenStream) -> TokenStream {
     let attr = parse_macro_input!(attr as AttributeArgs);
     let crab_meta = match parse_meta(attr) {
         Ok(crab_meta) => crab_meta,
-        Err(error) => return error.into(),
+        Err(error) => return error,
     };
     match input.sig.inputs.to_token_stream().to_string().as_str() {
-        "" |
-        "args : Vec < Value >" |
-        "args : Vec < crabzilla :: Value >" => {},
-        "args : std :: vec :: Vec < Value >" => {},
-        "args : std :: vec :: Vec < crabzilla :: Value >" => {},
-        "args : :: vec :: Vec < Value >" => {},
-        "args : :: vec :: Vec < crabzilla :: Value >" => {},
-        _ => return error(
-            input.sig.inputs,
-            "Illegal arguments, should be empty or \"args: Vec<Value>\""
-        ),
-    }
-    match input.sig.asyncness {
-        Some(_) => todo!(),
-        None => {
-            match input.sig.output.to_token_stream().to_string().as_str() {
-                "-> crabzilla :: Value" | "-> Value"
-                    => quote_without_return(&input.sig.ident, &input.block, crab_meta),
-                "-> ()" | ""
-                    => quote_with_return(&input.sig.ident, &input.block, crab_meta),
-                _ => error(
-                    input.sig.output,
-                    "Illegal return type, should be empty or \"Value\""
-                ),
-            }
+        "" | "args : Vec < Value >" | "args : Vec < crabzilla :: Value >" => {}
+        "args : std :: vec :: Vec < Value >" => {}
+        "args : std :: vec :: Vec < crabzilla :: Value >" => {}
+        "args : :: vec :: Vec < Value >" => {}
+        "args : :: vec :: Vec < crabzilla :: Value >" => {}
+        _ => {
+            return error(
+                input.sig.inputs,
+                "Illegal arguments, should be empty or \"args: Vec<Value>\"",
+            )
         }
+    }
+    match input.sig.output.to_token_stream().to_string().as_str() {
+        "-> crabzilla :: Value" | "-> Value" => {
+            quote_without_return(&input.sig.ident, &input.block, crab_meta)
+        }
+        "-> ()" | "" => quote_with_return(&input.sig.ident, &input.block, crab_meta),
+        _ => error(
+            input.sig.output,
+            "Illegal return type, should be empty or \"Value\"",
+        ),
     }
 }

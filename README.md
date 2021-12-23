@@ -7,7 +7,7 @@ Crabzilla provides a _simple_ interface for running JavaScript modules alongside
 use crabzilla::*;
 use std::io::stdin;
 
-#[import_fn(name="read", scope="Stdin")]
+#[import_fn(name = "read", scope = "Stdin")]
 fn read_from_stdin() -> Value {
     let mut buffer = String::new();
     println!("Type your name: ");
@@ -19,12 +19,10 @@ fn read_from_stdin() -> Value {
     json!(buffer)
 }
 
-#[import_fn(name="sayHello", scope="Stdout")]
+#[import_fn(name = "sayHello", scope = "Stdout")]
 fn say_hello(args: Vec<Value>) {
-    if let Some(string) = args.get(0) {
-        if let Value::String(string) = string {
-            println!("Hello, {}", string);
-        }
+    if let Some(Value::String(string)) = args.get(0) {
+        println!("Hello, {}", string);
     }
 }
 

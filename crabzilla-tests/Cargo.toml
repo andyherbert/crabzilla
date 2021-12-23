@@ -1,14 +1,14 @@
 [package]
 name = "crabzilla-tests"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["Andy Herbert <andy.herbert@gmail.com>"]
-edition = "2018"
+edition = "2021"
 
 [dependencies]
-crabzilla = {path = "../crabzilla", version = "^0.1"}
+crabzilla = {path = "../crabzilla", version = "0.1"}
 
 [dependencies.tokio]
-version = "^1.2"
+version = "1.2"
 features = [
     "macros",
     "time",

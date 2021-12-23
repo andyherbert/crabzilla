@@ -1,10 +1,10 @@
 [package]
 name = "import_fn"
-version = "0.1.1"
+version = "0.1.2"
 authors = [
     "Andy Herbert <andy.herbert@gmail.com>",
 ]
-edition = "2018"
+edition = "2021"
 license = "MIT"
 description = "Implementation of #[import_fn] macro for Crabzilla"
 repository = "https://github.com/andyherbert/crabzilla"

@@ -1,10 +1,10 @@
 [package]
 name = "crabzilla"
-version = "0.1.1"
+version = "0.1.2"
 authors = [
     "Andy Herbert <andy.herbert@gmail.com>",
 ]
-edition = "2018"
+edition = "2021"
 license = "MIT"
 description = "Provides a JavaScript runtime"
 repository = "https://github.com/andyherbert/crabzilla"
@@ -21,7 +21,6 @@ categories = [
 ]
 
 [dependencies]
-deno_core = "^0.79"
-futures = "^0.3"
-import_fn = {version = "^0.1", path = "../import_fn"}
-
+deno_core = "0.112"
+futures = "0.3"
+import_fn = {version = "0.1", path = "../import_fn"}

@@ -42,27 +42,12 @@ const user = Stdin.read();
 Stdout.sayHello(user);
 ```
 */
-use deno_core::{
-    FsModuleLoader,
-    JsRuntime,
-    ModuleSpecifier,
-    OpState,
-    OpFn,
-    ZeroCopyBuf,
-    // json_op_async,
-    json_op_sync,
-    // BufVec,
-};
-use std::rc::Rc;
-// use std::cell::RefCell;
-// use futures::Future;
-pub use deno_core::serde_json::{
-    json,
-    value::Value,
-};
-pub use deno_core::error::AnyError;
 pub use deno_core::error::custom_error;
+pub use deno_core::error::AnyError;
+pub use deno_core::serde_json::{json, value::Value};
+use deno_core::{op_sync, resolve_path, FsModuleLoader, JsRuntime, OpFn, OpState};
 pub use import_fn::import_fn;
+use std::rc::Rc;
 
 fn get_args(value: &Value) -> Vec<Value> {
     if let Value::Object(map) = &value {
@@ -78,50 +63,28 @@ pub struct ImportedFn {
     op_fn: Box<OpFn>,
     name: String,
     scope: Option<String>,
-    sync: bool,
 }
 
 /// Receives a Rust function and returns a structure that can be imported in to a runtime.
 pub fn create_sync_fn<F>(imported_fn: F, name: &str, scope: Option<String>) -> ImportedFn
-    where
+where
     F: Fn(Vec<Value>) -> Result<Value, AnyError> + 'static,
 {
-    let op_fn = json_op_sync(
-        move |_state: &mut OpState, value: Value, _buffer: &mut [ZeroCopyBuf]| -> Result<Value, AnyError> {
+    let op_fn = op_sync(
+        move |_state: &mut OpState, value: Value, _: ()| -> Result<Value, AnyError> {
             imported_fn(get_args(&value))
-        }
+        },
     );
     ImportedFn {
         op_fn,
         name: name.to_string(),
         scope,
-        sync: true,
     }
 }
-
-// Unsupported until async closures are stable.
-// pub fn create_async_fn<F, R>(imported_fn: F, name: &str, scope: Option<String>) -> ImportedFn
-//     where
-//     F: Fn(Vec<Value>) -> R + 'static,
-//     R: Future<Output = Result<Value, AnyError>> + 'static,
-// {
-//     let op_fn = json_op_async(
-//         move |_state: Rc<RefCell<OpState>>, value: Value, _buffer: BufVec| -> R {
-//             imported_fn(get_args(&value))
-//         }
-//     );
-//     ImportedFn {
-//         op_fn,
-//         name: name.to_string(),
-//         scope,
-//         sync: false,
-//     }
-// }
 
 struct ImportedName {
     name: String,
     scope: Option<String>,
-    sync: bool,
 }
 
 /// Represents a JavaScript runtime instance.
@@ -131,10 +94,9 @@ pub struct Runtime {
     scopes: Vec<String>,
 }
 
-impl Runtime {
-    /// Creates a new Runtime
-    pub fn new() -> Self {
-        let runtime = JsRuntime::new(deno_core::RuntimeOptions{
+impl Default for Runtime {
+    fn default() -> Self {
+        let runtime = JsRuntime::new(deno_core::RuntimeOptions {
             module_loader: Some(Rc::new(FsModuleLoader)),
             ..Default::default()
         });
@@ -146,10 +108,19 @@ impl Runtime {
             scopes,
         }
     }
+}
+
+impl Runtime {
+    /// Creates a new Runtime
+    pub fn new() -> Self {
+        Default::default()
+    }
 
     /// Imports a new ImportedFn
-    pub fn import<F>(&mut self, imported_fn: F) -> ()
-    where F: Fn() -> ImportedFn {
+    pub fn import<F>(&mut self, imported_fn: F)
+    where
+        F: Fn() -> ImportedFn,
+    {
         let import_fn = imported_fn();
         if let Some(scope) = &import_fn.scope {
             self.scopes.push(scope.clone());
@@ -158,7 +129,6 @@ impl Runtime {
         self.imported_names.push(ImportedName {
             name: import_fn.name,
             scope: import_fn.scope,
-            sync: import_fn.sync,
         });
     }
 
@@ -169,36 +139,33 @@ impl Runtime {
             scope_definitions.push_str(&format!("        window[{:?}] = {{}};\n", scope));
         }
         let mut name_definitions = String::new();
-        for import in self.imported_names.iter() {
+        for import in &self.imported_names {
             let scope = match &import.scope {
                 Some(scope) => format!("window[{:?}][{:?}]", scope, import.name),
                 None => format!("window[{:?}]", import.name),
             };
-            let command = match import.sync {
-                true => "jsonOpSync",
-                false => "jsonOpAsync",
-            };
-            name_definitions.push_str(&format!("        {} = (...args) => Deno.core.{}({:?}, {{args}});\n", scope, command, import.name));
+            name_definitions.push_str(&format!(
+                "        {} = (...args) => Deno.core.opSync({:?}, {{args}});\n",
+                scope, import.name
+            ));
         }
-        let js_source = format!(r#"
-"use strict";
-(
-    (window) => {{
-        Deno.core.ops();
-        Deno.core.registerErrorClass("Error", window.Error);
-{}{}    }}
-)(this);"#,
-            scope_definitions,
-            name_definitions,
+        let js_source = format!(
+            "\"use strict\";\n((window) => {{\n{}{}}})(this);",
+            scope_definitions, name_definitions,
         );
-        self.runtime.execute("rust:core.js", &js_source).expect("runtime exporting");
+        self.runtime.sync_ops_cache();
+        self.runtime
+            .execute_script("rust:core.js", &js_source)
+            .expect("runtime exporting");
     }
 
     /// Loads a JavaScript module and evaluates it
     pub async fn load_module(&mut self, path_str: &str) -> Result<(), AnyError> {
-        let specifier = ModuleSpecifier::resolve_path(path_str)?;
-        let id = self.runtime.load_module(&specifier, None).await?;
-        self.runtime.mod_evaluate(id).await
+        let specifier = resolve_path(path_str)?;
+        let id = self.runtime.load_main_module(&specifier, None).await?;
+        let result = self.runtime.mod_evaluate(id);
+        self.runtime.run_event_loop(false).await?;
+        result.await?
     }
 }
 
@@ -240,5 +207,5 @@ macro_rules! runtime {
 macro_rules! throw {
     ($message:expr) => {
         return Err(crabzilla::custom_error("Error", $message));
-    }
+    };
 }
